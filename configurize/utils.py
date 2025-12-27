@@ -1,5 +1,6 @@
 import ast
 import inspect
+import os
 import weakref
 from contextlib import contextmanager
 from functools import cached_property, partial
@@ -9,6 +10,10 @@ import torch
 from loguru import logger
 
 from .allowed_types import recur_to_allowed_types
+
+
+def is_log_rank():
+    return int(os.getenv("RANK", "0")) == 0
 
 
 def get_func_brief(func):
@@ -91,6 +96,22 @@ class DataClass:
                 for k, v in base_cls._get_class_attributes().items():
                     attributes.setdefault(k, v)
         return attributes
+
+    @classmethod
+    def _get_class_annotations(cls):
+        attributes = {}
+        attributes.update(cls.__annotations__)
+        for base_cls in cls.__bases__:
+            if issubclass(base_cls, DataClass):
+                for k, v in base_cls._get_class_annotations().items():
+                    attributes.setdefault(k, v)
+        return attributes
+
+    @cached_property
+    def _defined_attributes(self) -> set[str]:
+        return set(
+            self._get_class_attributes().keys() | self._get_class_annotations().keys()
+        )
 
     def _merge_args(self, kwargs: dict):
         from copy import copy
@@ -245,6 +266,9 @@ class Config(DataClass):
     _modify_stack = []
     """store modification in stack, enable push & pop"""
 
+    _allow_set_new_attr = True
+    """if set, `cfg.aaa = 1` is allowed even if 'aaa' does not exists"""
+
     _buildin_functions = [
         "father",
         "root",
@@ -266,6 +290,11 @@ class Config(DataClass):
     e.g. ["key1", "key2?"] means:
     - key1 must in expected_cfg and must same as expected_cfg[key1].
     - key2 must same as in expected_cfg[key2] if it exists in expected_cfg.
+    """
+
+    task_specs: dict[str, dict]
+    """If set, this module requires an individual sub-task. Adding this should be equal to add task to 
+    ResourceConfig.task_specs
     """
 
     @writable_property
@@ -402,6 +431,11 @@ class Config(DataClass):
                 v._father = weakref.ref(self)
 
     def __setattr__(self, name: str, value: Any) -> None:
+        if not (name.startswith("_") or self._allow_set_new_attr):
+            if name not in self._defined_attributes:
+                raise KeyError(
+                    f"Undefined key '{name}' in {self._class_name}, raise to avoid typo!"
+                )
         if isinstance(value, Config):
             value._father = weakref.ref(self)
             value._sub_cfg_name = name
@@ -715,7 +749,7 @@ class ConfigDiff(Config):
         return root
 
 
-def build_configdiff_from_flatten(data: dict[str, object]) -> ConfigDiff:
+def build_configdiff_from_flatten(data: dict[str, object]):
     root = ConfigDiff()
     for k, v in data.items():
         _root = root
@@ -727,9 +761,69 @@ def build_configdiff_from_flatten(data: dict[str, object]) -> ConfigDiff:
         setattr(_root, keys[-1], v)
     return root
 
-def config_diff(
-    ref: Config, exp: Config
-) -> tuple[list[tuple[str, str]], list[tuple[str, str, str, str]], ConfigDiff]:
+
+def cdiff(a, b):
+    def colored(text):
+        if text.startswith("+"):
+            text = f"\033[32m{text}\033[0m"
+        elif text.startswith("-"):
+            text = f"\033[31m{text}\033[0m"
+        elif text.startswith("?"):
+            text = f"\033[33m{text}\033[0m"
+        return text
+
+    from difflib import ndiff
+
+    ans = "\n".join(
+        [colored(x) for x in ndiff([str(x) for x in a], [str(x) for x in b])]
+    )
+    return ans
+
+
+def inherit_diff(exp: Config):
+    exp_module = inspect.getmodule(exp)
+    diff_method, new_method = [], []
+
+    def get_super_method(object: object, method_name):
+        super_method, base = None, None
+        for base in object.__class__.mro()[1:]:
+            super_method = getattr(base, method_name, None)
+            if super_method:
+                base = (
+                    inspect.getmodule(super_method).__name__
+                    + f".{super_method.__qualname__.split('.')[0]}"
+                )
+                break
+        if isinstance(base, str) and base.startswith("steptron.exp.utils"):
+            super_method, base = None, None
+        return super_method, base
+
+    def _extract_method_diff(cfg: Config):
+        keys = cfg.keys() + ["__init__"]
+        for k in keys:
+            v = super(Config, cfg).__getattribute__(k)
+            if isinstance(v, Config):
+                _extract_method_diff(v)
+            elif callable(v):
+                code_module = inspect.getmodule(v)
+                if code_module == exp_module:  # defined in this exp
+                    now_code = inspect.getsource(v)
+                    old_code, father = get_super_method(cfg, k)
+                    if old_code:
+                        old_code = inspect.getsource(old_code)
+                        diff_method.append(
+                            (father, old_code, cfg._get_node_name(), now_code)
+                        )
+                    else:
+                        new_method.append((cfg._get_node_name(), now_code))
+
+    _extract_method_diff(exp)
+    father_exp = exp.__class__.mro()[1]()
+    diff_attr = father_exp.diff(exp)
+    return new_method, diff_method, diff_attr
+
+
+def config_diff(ref: Config, exp: Config):
     diff_method, new_method = [], []
 
     def _extract_method_diff(ref_cfg: Config, cfg: Config):
