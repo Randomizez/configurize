@@ -43,7 +43,7 @@ class Config(DataClass):
     _modify_stack = []
     """store modification in stack, enable push & pop"""
 
-    _allow_set_new_attr = None
+    _allow_set_new_attr = False
     """if set True, `cfg.aaa = 1` is allowed even if 'aaa' does not exists. None for allowed now."""
 
     _buildin_functions = [
