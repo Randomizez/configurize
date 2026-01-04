@@ -1,12 +1,40 @@
 [project]
 name = "configurize"
 version = "0.1.0"
-description = "Add your description here"
+description = "Hierarchical configuration management with inheritance, cross-references, and diffing"
 readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Zhou Hongyu", email = "rndj@outlook.com"}
+]
+keywords = ["config", "configuration", "settings", "hierarchical", "dataclass"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.6"
 dependencies = [
     "loguru",
     "fire",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Randomizez/configurize"
+Repository = "https://github.com/Randomizez/configurize"
+
 [project.scripts]
 cfshow = "configurize.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
