@@ -8,9 +8,7 @@ from configurize import Config
 from configurize.utils import compare_in_vscode, get_object_from_file, show_or_compare
 
 
-def cfshow(
-    ref: str | Config, exp: str | Config = None, key=None, query=None
-):
+def cfshow(ref: str | Config, exp: str | Config = None, key=None, query=None):
     """Show an Exp or compare two Exps
 
     Usage:
@@ -86,6 +84,7 @@ def cfshow(
 
 def main():
     import fire
+
     fire.Fire(cfshow)
 
 
