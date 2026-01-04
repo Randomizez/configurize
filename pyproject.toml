@@ -3,7 +3,7 @@ name = "configurize"
 version = "0.1.0"
 description = "Hierarchical configuration management with inheritance, cross-references, and diffing"
 readme = "README.md"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Zhou Hongyu", email = "rndj@outlook.com"}
 ]
