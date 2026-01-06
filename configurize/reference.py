@@ -1,4 +1,4 @@
-class ReferenceError(LookupError):
+class CfgReferenceError(LookupError):
     def __str__(self):
         import traceback
 
@@ -45,7 +45,7 @@ class Ref:
     }
     """
 
-    def __init__(self, ref_str: str, default=ReferenceError):
+    def __init__(self, ref_str: str, default=CfgReferenceError):
         assert ref_str.startswith(".")
         self.ref_str = ref_str
         self.actions = self._parse_level(ref_str)

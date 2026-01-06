@@ -11,7 +11,7 @@ from loguru import logger
 
 from .allowed_types import recur_to_allowed_types
 from .data_class import DataClass
-from .reference import Ref
+from .reference import CfgReferenceError, Ref
 from .utils import get_func_brief, writable_property
 
 
@@ -196,7 +196,7 @@ class Config(DataClass):
                 else:
                     value.cur_value = cur
             except (AttributeError, AssertionError, TypeError):
-                if value.default is ReferenceError:
+                if value.default is CfgReferenceError:
                     if deref:
                         raise value.default(
                             f"Unable to find reference of <{value.ref_str}> @ {self._class_name}"
