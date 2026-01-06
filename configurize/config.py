@@ -20,7 +20,6 @@ class TaskSpec(TypedDict, total=False):
     Below attributes DO NOT need default value if not set.
     """
 
-    # Override corresponding fields in ResourceConfig if set
     replica: int
     """Number of replica(nodes) this task should run on."""
     command: str
