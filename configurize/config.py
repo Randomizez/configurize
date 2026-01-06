@@ -5,7 +5,7 @@ import inspect
 import weakref
 from contextlib import contextmanager
 from functools import partial
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 
 from loguru import logger
 
@@ -13,6 +13,22 @@ from .allowed_types import recur_to_allowed_types
 from .data_class import DataClass
 from .reference import Ref
 from .utils import get_func_brief, writable_property
+
+
+class TaskSpec(TypedDict, total=False):
+    """Indicate resource & entrypoint for specific task.
+    Below attributes DO NOT need default value if not set.
+    """
+
+    # Override corresponding fields in ResourceConfig if set
+    replica: int
+    """Number of replica(nodes) this task should run on."""
+    command: str
+    """Entrypoint for this task. e.g. 'redis-server --port 12345'"""
+    envs: dict[str, Any]
+    """Environment variables for this task."""
+    image: str
+    """Docker image for this task. Optional."""
 
 
 class Config(DataClass):
@@ -71,9 +87,8 @@ class Config(DataClass):
     - key2 must same as in expected_cfg[key2] if it exists in expected_cfg.
     """
 
-    task_specs: dict[str, dict]
-    """If set, this module requires an individual sub-task. Adding this should be equal to add task to 
-    ResourceConfig.task_specs
+    task_specs: dict[str, TaskSpec]
+    """If set, this module requires somes individual entrypoints.
     """
 
     @writable_property
@@ -105,6 +120,16 @@ class Config(DataClass):
     def assert_critical_attrs_expected(
         self, expected_cfg: "dict | Config", cum_errs: list = None
     ):
+        """Recursively compare self with another 'expected_cfg', raise error
+        if any of 'critical_keys' mismatches.
+
+        Args:
+            expected_cfg (dict | Config): The reference config, NOTE: only critical_keys of
+            THIS(self) config will be checked.
+
+        Raises:
+            Exception: raise all mismatch keys.
+        """
         errs = []  # hold error and raise together
         # recursive check sub nodes
         for k, v in self.items():
@@ -149,13 +174,6 @@ class Config(DataClass):
                     text.append(f">>> {tb}\n")
                 text = "\n".join(text)
                 raise Exception(f"{text}\nAttributes Check Fail!")
-
-    def _ensure_exp_args_parsed(self):
-        """Ensure CLI overrides are applied by running update_from_args once."""
-        root = self.root()
-        updater = getattr(root, "update_from_args", None)
-        if callable(updater):
-            updater()
 
     def _deref(self, name, value, deref=True):
         if isinstance(value, Ref):
@@ -235,7 +253,7 @@ class Config(DataClass):
             self._set_attribute_traces[name].append((value, caller_info, defined))
         return super().__setattr__(name, value)
 
-    def _all_set_history(self):
+    def _all_set_history(self) -> dict[str, list[tuple[Any, str, bool]]]:
         history = {}
         if self._set_attribute_traces:
             for k, trace in self._set_attribute_traces.items():
@@ -246,6 +264,10 @@ class Config(DataClass):
         return history
 
     def __init__(self, **kwargs):
+        """
+        1. set kwargs on self.
+        2. build all my sub-configs.
+        """
         self._merge_args(kwargs)
 
         for k, v in self.items(deref=False):
