@@ -275,7 +275,7 @@ class Config(DataClass):
         if self._set_attribute_traces:
             for k, trace in self._set_attribute_traces.items():
                 history[f"{self._get_node_name()}.{k}"] = trace
-        for k, v in self.items():
+        for k, v in self.items(deref=False):
             if isinstance(v, Config):
                 history.update(v._all_set_history())
         return history
@@ -305,7 +305,7 @@ class Config(DataClass):
 
     def sanity_check(self):
         # recursive check sub-configs
-        for k, v in self.items():
+        for k, v in self.items(deref=False):
             if isinstance(v, Config):
                 v.sanity_check()
 
