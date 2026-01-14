@@ -1,4 +1,9 @@
-class CfgReferenceError(LookupError):
+class CfgReferenceError(Exception):
+    def __init__(self, err_str, raw_exec=None):
+        super().__init__()
+        self.err_str = err_str
+        self.raw_exec = raw_exec
+
     def __str__(self):
         import traceback
 
@@ -10,17 +15,11 @@ class CfgReferenceError(LookupError):
                 if frame.f_code.co_name == "__init__":
                     _self = frame.f_locals["self"]
                     error_hint = f"\n\nHint: Find you access this in {_self._class_name}.__init__() during build!"
-        return (
-            super().__str__()
-            + (
-                "\n\nReference Error took place when you try to access a Ref() but we can't find "
-                "the target in config tree. There might be 2 potential reason: \n"
-                "1. Typo in your ref string or wrong path.\n"
-                "2. The Ref() is accessed when the tree is not fully built. NOTE that "
-                "you should not access a Ref() during bulding (e.g. in __init__())!"
-            )
-            + error_hint
-        )
+        if self.raw_exec:
+            raw_tb = traceback.format_exception(self.raw_exec)
+            raw_tb = "\n".join(raw_tb)
+            error_hint += f"\n\nException during de-ref:\n\n{raw_tb}"
+        return self.err_str + error_hint
 
 
 class Ref:
@@ -70,7 +69,11 @@ class Ref:
         return levels
 
     def __repr__(self) -> str:
-        if self.cur_value is KeyError:
+        if self.cur_value is CfgReferenceError:
             return f"❓ PendingRef({self.ref_str})"
         else:
+            from .config import Config
+
+            if isinstance(self.cur_value, Config):
+                return f"{self.cur_value._get_node_name()} 🈯 Ref({self.ref_str})"
             return f"{repr(self.cur_value)} 🈯 Ref({self.ref_str})"

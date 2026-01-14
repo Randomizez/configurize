@@ -12,7 +12,7 @@ from loguru import logger
 from .allowed_types import recur_to_allowed_types
 from .data_class import DataClass
 from .reference import CfgReferenceError, Ref
-from .utils import get_func_brief, writable_property
+from .utils import filter_traceback_frames, get_func_brief, writable_property
 
 
 class TaskSpec(TypedDict, total=False):
@@ -180,10 +180,16 @@ class Config(DataClass):
                 cur = self
                 for action in value.actions:
                     if action == ".":  # goto father
+                        if cur.father() is None:
+                            raise CfgReferenceError(
+                                f"Unable to find father of {cur._class_name} requested by <{self._class_name}.{name} = Ref('{value.ref_str}')>"
+                            )
                         cur = cur.father()
-                        assert cur is not None
                     else:  # goto sub
-                        cur = super(Config, cur).__getattribute__(action)
+                        if type(cur) is type:
+                            cur = super(Config, cur).__getattribute__(cur, action)
+                        else:
+                            cur = super(Config, cur).__getattribute__(action)
                         if isinstance(cur, Ref):
                             ref_name = f"{self._get_node_name()}.{name}"
                             raise ValueError(
@@ -195,15 +201,27 @@ class Config(DataClass):
                     value = cur
                 else:
                     value.cur_value = cur
-            except (AttributeError, AssertionError, TypeError):
+            except (AttributeError, CfgReferenceError) as e:
                 if value.default is CfgReferenceError:
                     if deref:
                         raise value.default(
-                            f"Unable to find reference of <{value.ref_str}> @ {self._class_name}"
-                        )
+                            f"Unable to find reference of <{self._class_name}.{name} = Ref('{value.ref_str}')>"
+                            + (
+                                "\n\nReference Error took place when you try to access a Ref() but we can't find "
+                                "the target in config tree. There might be 2 potential reason: \n"
+                                "1. Typo in your ref string or wrong path.\n"
+                                "2. The Ref() is accessed when the tree is not fully built. NOTE that "
+                                "you should not access a Ref() during building (e.g. in __init__())!"
+                            ),
+                            e.with_traceback(
+                                filter_traceback_frames("configurize", e.__traceback__)
+                            ),
+                        ) from None
                     else:
                         return value
-                return value.default
+                else:
+                    return value.default
+
         return value
 
     def _get_node_name(self) -> str:
@@ -362,7 +380,7 @@ class Config(DataClass):
     def _brief(self) -> str:
         self_repr = f"{self.__class__.__module__}.{self.__class__.__name__}"
         text = [f"{self_repr}("]
-        for k, v in self.items():
+        for k, v in self.items(deref=False, rep=True):
             if isinstance(v, Config):
                 sub_texts = v._brief().splitlines()
                 sub_texts[0] = f"{k} = {sub_texts[0]}"

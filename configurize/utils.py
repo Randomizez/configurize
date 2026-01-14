@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import inspect
 import os
+import sys
+import types
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
@@ -18,6 +20,35 @@ def get_func_brief(func):
     except:
         signature = "(?) -> ?"
     return f"Func{signature}"
+
+
+def filter_traceback_frames(
+    module_pattern, tb: types.TracebackType = None
+) -> types.TracebackType:
+    """过滤特定模块的traceback帧"""
+    if tb is None:
+        _, _, tb = sys.exc_info()
+    filtered: list[types.FrameType] = []
+    while tb is not None:
+        # 检查模块名是否匹配排除条件
+        frame = tb.tb_frame
+        module_name = frame.f_globals.get("__name__", "")
+        if not module_name.startswith(module_pattern):
+            # 保留非目标模块的帧
+            filtered.append(frame)
+        tb = tb.tb_next
+
+    new_tb = None
+
+    # 反向构建新traceback链（FILO）
+    for frame in reversed(filtered):
+        new_tb = types.TracebackType(
+            new_tb,
+            tb_frame=frame,
+            tb_lasti=frame.f_lasti,
+            tb_lineno=frame.f_lineno,
+        )
+    return new_tb
 
 
 def get_object_from_file(file: str, name: str = "Exp") -> object:
