@@ -44,7 +44,7 @@ class DataClass:
         )
 
     def _merge_args(self, kwargs: dict):
-        from copy import copy
+        from copy import deepcopy
         from typing import Callable
 
         for k, v in self.__class__._get_class_attributes().items():
@@ -53,7 +53,7 @@ class DataClass:
             elif not k.startswith("_") and not isinstance(
                 v, (Callable, cached_property, property, classmethod)
             ):
-                setattr(self, k, copy(v))  # Config build: copy class attr to object
+                setattr(self, k, deepcopy(v))  # Config build: copy class attr to object
         for k, v in kwargs.items():
             setattr(self, k, v)
 
