@@ -1,3 +1,5 @@
+from dataclasses import is_dataclass
+
 from loguru import logger
 
 SEQUENCE_TYPES = (
@@ -52,11 +54,15 @@ def recur_to_allowed_types(obj, extra_allowed=()):
         Any: the converted object
     """
 
-    if not isinstance(obj, ALLOWED_TYPES + extra_allowed):
+    if not isinstance(obj, ALLOWED_TYPES + extra_allowed) and not is_dataclass(obj):
         logger.error(f"{obj} is NOT allowed in Config!!")
         obj = repr(obj)
     else:
         cls = type(obj)
+        if is_dataclass(obj):
+            cls = dict
+            obj = obj.__dict__
+
         if cls in SEQUENCE_TYPES:
             obj = cls([recur_to_allowed_types(i, extra_allowed) for i in obj])
         elif cls in MAPPING_TYPES:
