@@ -357,8 +357,12 @@ class Config(DataClass):
                 raise e
 
     def __getattribute__(self, name: str):
-        if not name.startswith("_"):
-            return self._get(name)
+        try:
+            if not name.startswith("_"):
+                return self._get(name)
+        except AttributeError as e:
+            e.__traceback__ = filter_traceback_frames("configurize", e.__traceback__)
+            raise e from None
         return super().__getattribute__(name)
 
     def __repr__(self):
