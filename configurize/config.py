@@ -5,7 +5,7 @@ import inspect
 import weakref
 from contextlib import contextmanager
 from functools import partial
-from typing import Any, Callable, TypedDict
+from typing import Any, Callable, Optional, TypedDict
 
 from loguru import logger
 
@@ -78,7 +78,7 @@ class Config(DataClass):
         "assert_critical_attrs_expected",
     ]
 
-    critical_keys: list[str]
+    critical_keys: Optional[list[str]]
     """if set, mark some attributes as 'critical', critical attrs can be compared with other config for 
     consistency check(`self.assert_critical_attrs_expected(expected_cfg)`).
     e.g. ["key1", "key2?"] means:
@@ -86,7 +86,7 @@ class Config(DataClass):
     - key2 must same as in expected_cfg[key2] if it exists in expected_cfg.
     """
 
-    task_specs: dict[str, TaskSpec]
+    task_specs: Optional[dict[str, TaskSpec]]
     """If set, this module requires somes individual entrypoints.
     """
 
@@ -282,9 +282,14 @@ class Config(DataClass):
 
     def __init__(self, **kwargs):
         """
-        1. set kwargs on self.
+        1. set kwargs on self. (deprecated, set in __init__.)
         2. build all my sub-configs.
         """
+        if kwargs:
+            logger.warning(
+                "Setting config use Config(a=a) is not recommanded! These values might "
+                "be override by __init__() and do not actually take effect."
+            )
         self._merge_args(kwargs)
 
         for k, v in self.items(deref=False):
@@ -308,6 +313,20 @@ class Config(DataClass):
         for k, v in self.items(deref=False):
             if isinstance(v, Config):
                 v.sanity_check()
+
+        # check defined attrs all set
+        missing_attrs = []
+        expected_attrs = self._get_class_annotations()
+        for k, t in expected_attrs.items():
+            if "Optional[" in str(t):
+                continue  # pass check for Optional annotation
+            if not hasattr(self, k):
+                missing_attrs.append(k)
+        if missing_attrs:
+            repr_str = "\n".join(f"- {k}: {expected_attrs[k]}" for k in missing_attrs)
+            raise AttributeError(
+                f"Attributes defined but not set for {self._get_node_name()}:\n{repr_str}"
+            )
 
     def _flatten_config(self) -> dict:
         flatten_dict = {}
