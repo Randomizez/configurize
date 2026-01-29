@@ -51,6 +51,21 @@ def filter_traceback_frames(
     return new_tb
 
 
+def get_module_from_file(file: str) -> object:
+    """
+    get module by file.
+    Args:
+        file (str): file path.
+    """
+    import importlib
+
+    module_name_without_ext = os.path.splitext(os.path.basename(file))[0]
+    directory_path = os.path.dirname(file)
+    sys.path.insert(0, directory_path)
+    current_exp = importlib.import_module(module_name_without_ext)
+    return current_exp
+
+
 def get_object_from_file(file: str, name: str = "Exp") -> object:
     """
     get object by file.
@@ -58,14 +73,7 @@ def get_object_from_file(file: str, name: str = "Exp") -> object:
         file (str): file path.
         name (str): object name.
     """
-    import importlib
-    import sys
-
-    module_name_without_ext = os.path.splitext(os.path.basename(file))[0]
-    directory_path = os.path.dirname(file)
-    sys.path.insert(0, directory_path)
-    current_exp = importlib.import_module(module_name_without_ext)
-    sys.path.pop(0)
+    current_exp = get_module_from_file(file)
     obj = getattr(current_exp, name)
     return obj
 

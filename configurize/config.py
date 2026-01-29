@@ -14,6 +14,13 @@ from .data_class import DataClass
 from .reference import CfgReferenceError, Ref
 from .utils import filter_traceback_frames, get_func_brief, writable_property
 
+__REPR_FLAG = False  # when enabled, all getattr fail will be skip
+
+
+class Repr(str):
+    def __repr__(self):
+        return str(self)
+
 
 class TaskSpec(TypedDict, total=False):
     """Indicate resource & entrypoint for specific task.
@@ -379,13 +386,21 @@ class Config(DataClass):
         try:
             if not name.startswith("_"):
                 return self._get(name)
-        except AttributeError as e:
-            e.__traceback__ = filter_traceback_frames("configurize", e.__traceback__)
-            raise e from None
+        except Exception as e:
+            if __REPR_FLAG:
+                return Repr("❌ " + e.__repr__())
+            else:
+                e.__traceback__ = filter_traceback_frames(
+                    "configurize", e.__traceback__
+                )
+                raise e from None
         return super().__getattribute__(name)
 
     def __repr__(self):
         from pprint import pformat
+
+        global __REPR_FLAG
+        __REPR_FLAG = True
 
         text = [f"{self._class_name}("]
 
@@ -398,6 +413,7 @@ class Config(DataClass):
         text.append(")")
         if self.root() is self and self.__class__.__name__ == "Exp":
             text.append(f"🗺️ TL;DR 🗺️\n{self._brief()}")
+        __REPR_FLAG = False
         return "\n".join(text)
 
     def _brief(self) -> str:
