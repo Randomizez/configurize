@@ -5,7 +5,12 @@ import warnings
 warnings.filterwarnings("ignore", ".*")
 
 from configurize import Config
-from configurize.utils import compare_in_vscode, get_object_from_file, show_or_compare
+from configurize.utils import (
+    compare_in_vscode,
+    get_module_from_file,
+    get_object_from_file,
+    show_or_compare,
+)
 
 
 def cfshow(ref: str | Config, exp: str | Config = None, key=None, query=None):
@@ -22,10 +27,28 @@ def cfshow(ref: str | Config, exp: str | Config = None, key=None, query=None):
 
     with mock_imports():
         if isinstance(ref, str):
-            ref = get_object_from_file(ref, "Exp")()
+            try:
+                ref = get_object_from_file(ref, "Exp")()
+            except:  # No Exp, just show last class
+                mod = get_module_from_file(ref)
+                cfgs = [
+                    v
+                    for v in mod.__dict__.values()
+                    if isinstance(v, type) and issubclass(v, Config)
+                ]
+                ref = cfgs[-1]()
 
         if isinstance(exp, str) and os.path.exists(exp):
-            exp = get_object_from_file(exp, "Exp")()
+            try:
+                exp = get_object_from_file(exp, "Exp")()
+            except:  # No Exp, just show last class
+                mod = get_module_from_file(exp)
+                cfgs = [
+                    v
+                    for v in mod.__dict__.values()
+                    if isinstance(v, type) and issubclass(v, Config)
+                ]
+                exp = cfgs[-1]()
 
     _ref = ref  # hold the reference
     if exp:
