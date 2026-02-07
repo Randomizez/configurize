@@ -5,7 +5,8 @@ import inspect
 import weakref
 from contextlib import contextmanager
 from functools import partial
-from typing import Any, Callable, Optional, TypedDict
+from types import UnionType
+from typing import Any, Callable, Optional, TypedDict, Union, get_args, get_origin
 
 from loguru import logger
 
@@ -15,6 +16,17 @@ from .reference import CfgReferenceError, Ref
 from .utils import filter_traceback_frames, get_func_brief, writable_property
 
 _REPR_FLAG = False  # when enabled, all getattr fail will be skip
+
+
+def _is_optional(annotation) -> bool:
+    """Check if a type annotation is Optional (Union with None or T | None)."""
+    origin = get_origin(annotation)
+    if origin is None:
+        return False
+    if origin is Union or origin is UnionType:
+        args = get_args(annotation)
+        return type(None) in args
+    return False
 
 
 class Repr(str):
@@ -325,7 +337,7 @@ class Config(DataClass):
         missing_attrs = []
         expected_attrs = self._get_class_annotations()
         for k, t in expected_attrs.items():
-            if "Optional[" in str(t):
+            if _is_optional(t):
                 continue  # pass check for Optional annotation
             if not hasattr(self, k):
                 missing_attrs.append(k)

@@ -39,6 +39,7 @@ def test_config_references():
 
     class ParentConfig(Config):
         base_value = 42
+        optional: int | None
         sub = SubConfig
 
     cfg = ParentConfig()

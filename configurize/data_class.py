@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from functools import cached_property
 
+from typing_extensions import get_annotations
+
 
 class DataClass:
     """
@@ -30,7 +32,7 @@ class DataClass:
     @classmethod
     def _get_class_annotations(cls):
         attributes = {}
-        attributes.update(cls.__annotations__)
+        attributes.update(get_annotations(cls, eval_str=True))
         for base_cls in cls.__bases__:
             if issubclass(base_cls, DataClass):
                 for k, v in base_cls._get_class_annotations().items():

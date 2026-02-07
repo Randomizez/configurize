@@ -18,6 +18,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fire" },
     { name = "loguru" },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -30,6 +31,7 @@ dev = [
 requires-dist = [
     { name = "fire" },
     { name = "loguru" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
 
 [package.metadata.requires-dev]
