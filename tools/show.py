@@ -5,13 +5,10 @@ import warnings
 warnings.filterwarnings("ignore", ".*")
 
 from configurize import Config
-from configurize.utils import compare_in_vscode, show_or_compare
-from configurize.utils import get_object_from_file
+from configurize.utils import compare_in_vscode, get_object_from_file, show_or_compare
 
 
-def load_and_compare(
-    ref: str | Config, exp: str | Config = None, key=None, query=None
-):
+def load_and_compare(ref: str | Config, exp: str | Config = None, key=None, query=None):
     """Show an Exp or compare two Exps
 
     Usage:

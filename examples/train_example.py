@@ -36,8 +36,8 @@ class Trainer:
         self.cfg = cfg
 
     def train(self):
-        from tqdm import tqdm
         import torch
+        from tqdm import tqdm
 
         logger = self.cfg.logger_cfg.build_logger()
         model = self.cfg.model_cfg.build_model()
