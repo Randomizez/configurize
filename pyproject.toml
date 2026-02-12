@@ -1,6 +1,6 @@
 [project]
 name = "configurize"
-version = "0.1.9"
+version = "0.2.0"
 description = "Hierarchical configuration management with inheritance, cross-references, and diffing"
 readme = "README.md"
 license = {text = "MIT"}
