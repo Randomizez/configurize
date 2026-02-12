@@ -311,6 +311,7 @@ class Config(DataClass):
             )
         self._merge_args(kwargs)
 
+        # Handle assigned Config subclasses (e.g., sub = SubConfig)
         for k, v in self.items(deref=False):
             if type(v) is type and issubclass(v, Config):
                 v = v()
@@ -318,6 +319,26 @@ class Config(DataClass):
             if isinstance(v, Config):
                 v._father = weakref.ref(self)
                 v._sub_cfg_name = k
+
+        # Handle type-annotated Config subclasses (e.g., sub: SubConfig)
+        annotations = self._get_class_annotations()
+        for k, annotation_type in annotations.items():
+            # Skip if already set as an attribute
+            if hasattr(self, k):
+                continue
+            # Check if the annotation is a Config subclass type
+            try:
+                if type(annotation_type) is type and issubclass(
+                    annotation_type, Config
+                ):
+                    # Instantiate the Config subclass
+                    v = annotation_type()
+                    setattr(self, k, v)
+                    v._father = weakref.ref(self)
+                    v._sub_cfg_name = k
+            except TypeError:
+                # issubclass raises TypeError if annotation_type is not a class
+                pass
 
         if self._allow_search:
             self._flatten_args = self._flatten_config()
